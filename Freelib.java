@@ -18,18 +18,17 @@ public class Freelib extends Plugin {
 
     private Connection db;
     private final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
     private Date lastUpdate;
-    private String channel;
+    private String channelName;
 
     private final int UPDATE_INTERVAL = 60;
 
-    private final String INFO_URL = "http://elib.se/library/ebook_detail.asp?id_type=ISBN&id={isbn}&lib=40";
-    private final String LEND_URL = "https://www.elib.se/library/login.asp?post=L%C3%A5na+boken&lib=40&id={isbn}&id_type=ISBN";
 
     @Override
     public void onLoad(Map<String, String> settings) {
         // Channel
-        channel = settings.get("channel");
+        channelName = settings.get("channel");
         // Database
         String filename = settings.get("database");
         try {
@@ -47,8 +46,8 @@ public class Freelib extends Plugin {
     @Override
     public void onConnected() {
         // Join channel
-        if (!getNetwork().isInChannel(channel)) {
-            getNetwork().getConnection().join(channel);
+        if (!getNetwork().isInChannel(channelName)) {
+            getNetwork().getConnection().join(channelName);
         }
     }
 
@@ -80,16 +79,13 @@ public class Freelib extends Plugin {
         return result;
     }
 
-    private void updateBook(String isbn, String isbn13, String title, String author,
-            String category, String publisher, java.sql.Date publishDate, String language,
-            String format, String description, String cover) {
-        System.out.println();
+    private void print(String s) {
+        getNetwork().getChannel(channelName).sendPrivmsg(s);
+    }
 
-        String lendUrl = LEND_URL.replace("{isbn}", isbn);
-        String infoUrl = INFO_URL.replace("{isbn}", isbn);
-
-        getNetwork().getChannel(channel).sendPrivmsg(
-                title + " - " + author + ": info " + infoUrl + " låna " + lendUrl);
+    private void updateBook(Book book) {
+        print(" ⎧ " + book.getTitle() + " - " + book.getAuthor());
+        print(" ⎩ Information: " + book.getInfoUrl() + " - Låna: " + book.getLendUrl());
     }
 
     private void update() {
@@ -106,12 +102,7 @@ public class Freelib extends Plugin {
                 if (added.after(lastUpdate)) {
                     lastUpdate = added;
                 }
-
-                updateBook(rs.getString("isbn"), rs.getString("isbn13"), rs.getString("title"),
-                        rs.getString("author"), rs.getString("category"),
-                        rs.getString("publisher"), rs.getDate("publish_date"),
-                        rs.getString("language"), rs.getString("format"),
-                        rs.getString("description"), rs.getString("cover"));
+                updateBook(Book.fromResultSet(rs));
                 count++;
             }
             rs.close();
