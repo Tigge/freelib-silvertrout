@@ -10,9 +10,13 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
+import silvertrout.Channel;
 import silvertrout.Plugin;
+import silvertrout.User;
+import silvertrout.commons.CommandLine;
 
 public class Freelib extends Plugin {
 
@@ -22,8 +26,8 @@ public class Freelib extends Plugin {
     private Date lastUpdate;
     private String channelName;
 
-    private final int UPDATE_INTERVAL = 60;
-
+    private static final int SEARCH_LIMIT = 5;
+    private static final int UPDATE_INTERVAL = 60;
 
     @Override
     public void onLoad(Map<String, String> settings) {
@@ -115,4 +119,48 @@ public class Freelib extends Plugin {
         }
     }
 
+    @Override
+    public void onPrivmsg(User user, Channel channel, String message) {
+        if (channel.getName().equals(channelName)) {
+            CommandLine command = new CommandLine(message);
+            if (command.getCommand().equals("search")) {
+                List<Book> books = search(command.getParam("for"));
+            }
+
+        }
+    }
+
+    private List<Book> search(String param) {
+
+        try {
+            String searchParam = "%" + param + "%";
+            PreparedStatement statement = db
+                    .prepareStatement("SELECT * FROM books WHERE isbn LIKE ? OR isbn13 LIKE ? OR title LIKE ? OR author LIKE ?");
+            for (int i = 1; i <= 4; i++) {
+                statement.setString(i, searchParam);
+            }
+
+            ResultSet rs = statement.executeQuery();
+            int count = 1;
+            for (; rs.next(); count++) {
+                if (count <= SEARCH_LIMIT) {
+                    Book book = Book.fromResultSet(rs);
+                    print("" + count + ". " + book.getTitle() + " - " + book.getAuthor());
+                }
+            }
+
+            if (count > SEARCH_LIMIT) {
+                print("Showing only " + SEARCH_LIMIT + " of " + count + " results");
+            } else if (count == 1) {
+                print("No results");
+            }
+
+            rs.close();
+            statement.close();
+        } catch (SQLException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return null;
+    }
 }
