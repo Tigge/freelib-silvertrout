@@ -10,7 +10,6 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
 
 import silvertrout.Plugin;
@@ -22,7 +21,7 @@ public class Freelib extends Plugin {
     private Date lastUpdate;
     private String channel;
 
-    private final int UPDATE_INTERVAL = 60 * 5;
+    private final int UPDATE_INTERVAL = 60;
 
     private final String INFO_URL = "http://elib.se/library/ebook_detail.asp?id_type=ISBN&id={isbn}&lib=40";
     private final String LEND_URL = "https://www.elib.se/library/login.asp?post=L%C3%A5na+boken&lib=40&id={isbn}&id_type=ISBN";
@@ -48,7 +47,7 @@ public class Freelib extends Plugin {
     @Override
     public void onConnected() {
         // Join channel
-        if(!getNetwork().isInChannel(channel)) {
+        if (!getNetwork().isInChannel(channel)) {
             getNetwork().getConnection().join(channel);
         }
     }
@@ -61,22 +60,24 @@ public class Freelib extends Plugin {
     }
 
     private Date getLatestUpdate() {
+        Date result = new Date(0);
         try {
             Statement statement = db.createStatement();
             ResultSet rs = statement
                     .executeQuery("SELECT added FROM books ORDER BY added DESC LIMIT 1");
-
             if (rs.next()) {
-                return dateFormat.parse(rs.getString("added"));
+                result = dateFormat.parse(rs.getString("added"));
             }
+            rs.close();
+            statement.close();
         } catch (SQLException e) {
-            e.printStackTrace();
             // Fallthrough
+            e.printStackTrace();
         } catch (ParseException e) {
             // Fallthrough
             e.printStackTrace();
         }
-        return new Date(0);
+        return result;
     }
 
     private void updateBook(String isbn, String isbn13, String title, String author,
@@ -113,6 +114,8 @@ public class Freelib extends Plugin {
                         rs.getString("description"), rs.getString("cover"));
                 count++;
             }
+            rs.close();
+            statement.close();
             System.out.println("New last: " + lastUpdate + ", count: " + count);
         } catch (SQLException e) {
             e.printStackTrace();
